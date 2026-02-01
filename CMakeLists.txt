@@ -23,7 +23,10 @@ target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/include"
 source_group("Shaders" FILES ${SHADER_FILES})
 
 # Compile definations
+target_compile_definitions(${PROJECT_NAME} PRIVATE RESOURCE_DIR="${CMAKE_SOURCE_DIR}/resources")
 target_compile_definitions(${PROJECT_NAME} PRIVATE SHADER_DIR="${CMAKE_SOURCE_DIR}/resources/shaders")
+target_compile_definitions(${PROJECT_NAME} PRIVATE FONTS_DIR="${CMAKE_SOURCE_DIR}/resources/fonts")
+
 
 add_subdirectory("external/lvk")
 

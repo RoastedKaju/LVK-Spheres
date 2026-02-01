@@ -5,12 +5,30 @@
 #include <unordered_set>
 
 #include <lvk/LVK.h>
+#include <lvk/HelpersImGui.h>
 #include <GLFW/glfw3.h>
 #include <glm/ext.hpp>
 #include <glm/glm.hpp>
 
 #include "shader_processor.h"
 #include "sphere_data.h"
+
+void showUI(
+	lvk::ImGuiRenderer& imgui,
+	lvk::Framebuffer& framebuff,
+	lvk::ICommandBuffer& cmdBuff,
+	uint32_t& wireframe,
+	bool& showSolid)
+{
+	bool wireframeState = wireframe;
+	imgui.beginFrame(framebuff);
+	ImGui::Begin("Render Options", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+	ImGui::Checkbox("Wireframe", &wireframeState);
+	ImGui::Checkbox("Solid Mode", &showSolid);
+	ImGui::End();
+	imgui.endFrame(cmdBuff);
+	wireframe = (uint32_t)wireframeState;
+}
 
 int main()
 {
@@ -27,6 +45,22 @@ int main()
 	{
 		// Context
 		std::unique_ptr<lvk::IContext> ctx = lvk::createVulkanContextWithSwapchain(window, width, height, {});
+
+		// ImGui Context
+		std::unique_ptr<lvk::ImGuiRenderer> imgui = std::make_unique<lvk::ImGuiRenderer>(*ctx, FONTS_DIR"/Terminal.ttf", 13.0f);
+
+		// Mouse callbacks
+		glfwSetCursorPosCallback(window, [](auto* window, double x, double y) { ImGui::GetIO().MousePos = ImVec2(x, y); });
+		glfwSetMouseButtonCallback(window, [](auto* window, int button, int action, int mods) {
+			double xpos, ypos;
+			glfwGetCursorPos(window, &xpos, &ypos);
+			const ImGuiMouseButton_ imguiButton = (button == GLFW_MOUSE_BUTTON_LEFT)
+				? ImGuiMouseButton_Left
+				: (button == GLFW_MOUSE_BUTTON_RIGHT ? ImGuiMouseButton_Right : ImGuiMouseButton_Middle);
+			ImGuiIO& io = ImGui::GetIO();
+			io.MousePos = ImVec2((float)xpos, (float)ypos);
+			io.MouseDown[imguiButton] = action == GLFW_PRESS;
+			});
 
 		// Vertex and index buffer along with mesh data
 		std::vector<Vertex> verts;
@@ -76,6 +110,7 @@ int main()
 		};
 
 		// Pipelines
+		bool showSolid = true;
 		lvk::RenderPipelineDesc pipelineDesc{};
 		pipelineDesc.vertexInput = vdesc;
 		pipelineDesc.smVert = vert;
@@ -86,7 +121,7 @@ int main()
 		lvk::Holder<lvk::RenderPipelineHandle> soildPipeline = ctx->createRenderPipeline(pipelineDesc);
 
 		// Wireframe
-		const uint32_t isWireframe = 1;
+		uint32_t isWireframe = 1;
 		lvk::SpecializationConstantEntry wireframeSpecInfoEntry{};
 		wireframeSpecInfoEntry.constantId = 0;
 		wireframeSpecInfoEntry.size = sizeof(uint32_t);
@@ -160,15 +195,28 @@ int main()
 				buff.cmdBindVertexBuffer(0, vertexBuffer);
 				buff.cmdBindIndexBuffer(indexBuffer, lvk::IndexFormat_UI32);
 				// Bind Soild Pipeline
-				buff.cmdBindRenderPipeline(soildPipeline);
-				buff.cmdBindDepthState({ .compareOp = lvk::CompareOp_Less, .isDepthWriteEnabled = true });
-				buff.cmdPushConstants(pc);
-				buff.cmdDrawIndexed(indices.size());
+				if (showSolid)
+				{
+					buff.cmdBindRenderPipeline(soildPipeline);
+					buff.cmdBindDepthState({ .compareOp = lvk::CompareOp_Less, .isDepthWriteEnabled = true });
+					buff.cmdPushConstants(pc);
+					buff.cmdDrawIndexed(indices.size());
+				}
 				// Bind Wireframe Pipeline
-				buff.cmdBindRenderPipeline(wireframePipeline);
-				buff.cmdSetDepthBiasEnable(true);
-				buff.cmdSetDepthBias(0.0f, -1.0f, 0.0f);
-				buff.cmdDrawIndexed(indices.size());
+				if (isWireframe)
+				{
+					buff.cmdBindRenderPipeline(wireframePipeline);
+					// If we have skipped the upper pipeline then add push constants and depth state here
+					if (!showSolid)
+					{
+						buff.cmdPushConstants(pc);
+					}
+					buff.cmdSetDepthBiasEnable(true);
+					buff.cmdSetDepthBias(0.0f, -1.0f, 0.0f);
+					buff.cmdDrawIndexed(indices.size());
+				}
+				// UI
+				showUI(*imgui, framebuffer, buff, isWireframe, showSolid);
 			}
 			buff.cmdPopDebugGroupLabel();
 			buff.cmdEndRendering();
