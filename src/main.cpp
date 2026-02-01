@@ -10,6 +10,7 @@
 #include <glm/glm.hpp>
 
 #include "shader_processor.h"
+#include "sphere_data.h"
 
 int main()
 {
@@ -27,6 +28,28 @@ int main()
 		// Context
 		std::unique_ptr<lvk::IContext> ctx = lvk::createVulkanContextWithSwapchain(window, width, height, {});
 
+		// Vertex and index buffer along with mesh data
+		std::vector<Vertex> verts;
+		std::vector<uint32_t> indices;
+		// Generate sphere
+		generateUVSphere(1.0f, 32, 64, verts, indices);
+		// Vertex buffer
+		lvk::BufferDesc vertBufDesc{};
+		vertBufDesc.usage = lvk::BufferUsageBits_Vertex;
+		vertBufDesc.storage = lvk::StorageType_Device;
+		vertBufDesc.size = sizeof(Vertex) * verts.size();
+		vertBufDesc.data = verts.data();
+		vertBufDesc.debugName = "Buffer: vertex";
+		lvk::Holder<lvk::BufferHandle> vertexBuffer = ctx->createBuffer(vertBufDesc);
+		// Index Buffer
+		lvk::BufferDesc indexBufDes{};
+		indexBufDes.usage = lvk::BufferUsageBits_Index;
+		indexBufDes.storage = lvk::StorageType_Device;
+		indexBufDes.size = sizeof(uint32_t) * indices.size();
+		indexBufDes.data = indices.data();
+		indexBufDes.debugName = "Buffer: index";
+		lvk::Holder<lvk::BufferHandle> indexBuffer = ctx->createBuffer(indexBufDes);
+
 		// Shaders
 		lvk::Holder<lvk::ShaderModuleHandle> vert = loadShaderModule(ctx, std::filesystem::absolute(SHADER_DIR"/main.vert"));
 		lvk::Holder<lvk::ShaderModuleHandle> frag = loadShaderModule(ctx, std::filesystem::absolute(SHADER_DIR"/main.frag"));
@@ -40,8 +63,21 @@ int main()
 		depthTexDesc.debugName = "Depth Buffer";
 		lvk::Holder<lvk::TextureHandle> depthTexture = ctx->createTexture(depthTexDesc);
 
+		// Attributes
+		const lvk::VertexInput vdesc = {
+			.attributes = {
+				{
+					.location = 0,
+					.format = lvk::VertexFormat::Float3,
+					.offset = offsetof(Vertex, position)
+				}
+			},
+			.inputBindings = { {.stride = sizeof(Vertex) } }
+		};
+
 		// Pipelines
 		lvk::RenderPipelineDesc pipelineDesc{};
+		pipelineDesc.vertexInput = vdesc;
 		pipelineDesc.smVert = vert;
 		pipelineDesc.smFrag = frag;
 		pipelineDesc.color[0].format = ctx->getSwapchainFormat();
@@ -49,7 +85,14 @@ int main()
 
 		lvk::Holder<lvk::RenderPipelineHandle> soildPipeline = ctx->createRenderPipeline(pipelineDesc);
 
+		// Wireframe
+		//const uint32_t isWireframe = 1;
+		//lvk::RenderPipelineDesc wireframePipelineDesc{};
+
+		//lvk::Holder<lvk::RenderPipelineHandle> wireframePipeline = ctx->createRenderPipeline(wireframePipelineDesc);
+
 		LVK_ASSERT(soildPipeline.valid());
+		//LVK_ASSERT(wireframePipeline.valid());
 
 		// Render Loop
 		while (!glfwWindowShouldClose(window))
@@ -97,11 +140,14 @@ int main()
 			buff.cmdPushDebugGroupLabel("Render Triangle", 0xff0000ff);
 			{
 				// Bindings
+				buff.cmdBindVertexBuffer(0, vertexBuffer);
+				buff.cmdBindIndexBuffer(indexBuffer, lvk::IndexFormat_UI32);
 				buff.cmdBindRenderPipeline(soildPipeline);
 				buff.cmdBindDepthState({ .compareOp = lvk::CompareOp_Less, .isDepthWriteEnabled = true });
 				buff.cmdPushConstants(pc);
 				// Draw elements
-				buff.cmdDraw(3);
+				//buff.cmdDraw(3);
+				buff.cmdDrawIndexed(indices.size());
 			}
 			buff.cmdPopDebugGroupLabel();
 			buff.cmdEndRendering();
