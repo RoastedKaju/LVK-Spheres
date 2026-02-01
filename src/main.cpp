@@ -86,13 +86,26 @@ int main()
 		lvk::Holder<lvk::RenderPipelineHandle> soildPipeline = ctx->createRenderPipeline(pipelineDesc);
 
 		// Wireframe
-		//const uint32_t isWireframe = 1;
-		//lvk::RenderPipelineDesc wireframePipelineDesc{};
+		const uint32_t isWireframe = 1;
+		lvk::SpecializationConstantEntry wireframeSpecInfoEntry{};
+		wireframeSpecInfoEntry.constantId = 0;
+		wireframeSpecInfoEntry.size = sizeof(uint32_t);
 
-		//lvk::Holder<lvk::RenderPipelineHandle> wireframePipeline = ctx->createRenderPipeline(wireframePipelineDesc);
+		lvk::RenderPipelineDesc wireframePipelineDesc{};
+		wireframePipelineDesc.vertexInput = vdesc;
+		wireframePipelineDesc.smVert = vert;
+		wireframePipelineDesc.smFrag = frag;
+		wireframePipelineDesc.color[0].format = ctx->getSwapchainFormat();
+		wireframePipelineDesc.depthFormat = ctx->getFormat(depthTexture);
+		wireframePipelineDesc.polygonMode = lvk::PolygonMode_Line;
+		wireframePipelineDesc.specInfo.entries[0] = wireframeSpecInfoEntry;
+		wireframePipelineDesc.specInfo.data = &isWireframe;
+		wireframePipelineDesc.specInfo.dataSize = sizeof(isWireframe);
+
+		lvk::Holder<lvk::RenderPipelineHandle> wireframePipeline = ctx->createRenderPipeline(wireframePipelineDesc);
 
 		LVK_ASSERT(soildPipeline.valid());
-		//LVK_ASSERT(wireframePipeline.valid());
+		LVK_ASSERT(wireframePipeline.valid());
 
 		// Render Loop
 		while (!glfwWindowShouldClose(window))
@@ -105,7 +118,11 @@ int main()
 
 			const float ratio = width / (float)height;
 
-			const glm::mat4 m = glm::mat4(1.0f);
+			glm::mat4 model = glm::mat4(1.0f);          // identity
+			model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
+			model = glm::rotate(model, glm::radians((float)glfwGetTime() * 15.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+			model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
+
 			const glm::mat4 v = glm::lookAt(
 				glm::vec3(0.0f, 1.0f, 3.0f),   // camera position
 				glm::vec3(0.0f, 0.0f, 0.0f),   // look at model
@@ -131,7 +148,7 @@ int main()
 			const struct PerFrameData
 			{
 				glm::mat4 mvp;
-			} pc = { .mvp = p * v * m };
+			} pc = { .mvp = p * v * model };
 
 			// Command buffer
 			lvk::ICommandBuffer& buff = ctx->acquireCommandBuffer();
@@ -142,11 +159,15 @@ int main()
 				// Bindings
 				buff.cmdBindVertexBuffer(0, vertexBuffer);
 				buff.cmdBindIndexBuffer(indexBuffer, lvk::IndexFormat_UI32);
+				// Bind Soild Pipeline
 				buff.cmdBindRenderPipeline(soildPipeline);
 				buff.cmdBindDepthState({ .compareOp = lvk::CompareOp_Less, .isDepthWriteEnabled = true });
 				buff.cmdPushConstants(pc);
-				// Draw elements
-				//buff.cmdDraw(3);
+				buff.cmdDrawIndexed(indices.size());
+				// Bind Wireframe Pipeline
+				buff.cmdBindRenderPipeline(wireframePipeline);
+				buff.cmdSetDepthBiasEnable(true);
+				buff.cmdSetDepthBias(0.0f, -1.0f, 0.0f);
 				buff.cmdDrawIndexed(indices.size());
 			}
 			buff.cmdPopDebugGroupLabel();
