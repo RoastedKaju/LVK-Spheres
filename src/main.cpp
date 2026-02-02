@@ -13,6 +13,20 @@
 #include "shader_processor.h"
 #include "sphere_data.h"
 
+#include <vulkan/vulkan.h>
+
+enum class SphereType
+{
+	UVSphere = 0,
+	IcoSphere = 1
+};
+SphereType currentSphereType = SphereType::UVSphere;
+static const char* RenderShapeNames[] =
+{
+	"UV-Sphere",
+	"IcoSphere"
+};
+
 void showUI(
 	lvk::ImGuiRenderer& imgui,
 	lvk::Framebuffer& framebuff,
@@ -25,6 +39,11 @@ void showUI(
 	ImGui::Begin("Render Options", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 	ImGui::Checkbox("Wireframe", &wireframeState);
 	ImGui::Checkbox("Solid Mode", &showSolid);
+	int current = (int)currentSphereType;
+	if (ImGui::Combo("Render Mode", &current, RenderShapeNames, 2))
+	{
+		currentSphereType = (SphereType)current;
+	}
 	ImGui::End();
 	imgui.endFrame(cmdBuff);
 	wireframe = (uint32_t)wireframeState;
@@ -49,6 +68,8 @@ int main()
 		// ImGui Context
 		std::unique_ptr<lvk::ImGuiRenderer> imgui = std::make_unique<lvk::ImGuiRenderer>(*ctx, FONTS_DIR"/Terminal.ttf", 13.0f);
 
+
+
 		// Mouse callbacks
 		glfwSetCursorPosCallback(window, [](auto* window, double x, double y) { ImGui::GetIO().MousePos = ImVec2(x, y); });
 		glfwSetMouseButtonCallback(window, [](auto* window, int button, int action, int mods) {
@@ -65,7 +86,9 @@ int main()
 		// Vertex and index buffer along with mesh data
 		std::vector<Vertex> verts;
 		std::vector<uint32_t> indices;
-		// Generate sphere
+		std::vector<Vertex> vertsIco;
+		std::vector<uint32_t> indicesIco;
+		// Generate UV sphere
 		generateUVSphere(1.0f, 32, 64, verts, indices);
 		// Vertex buffer
 		lvk::BufferDesc vertBufDesc{};
@@ -83,6 +106,24 @@ int main()
 		indexBufDes.data = indices.data();
 		indexBufDes.debugName = "Buffer: index";
 		lvk::Holder<lvk::BufferHandle> indexBuffer = ctx->createBuffer(indexBufDes);
+		// Generate Ico sphere
+		generateIcoSphere(1.0f, 3, vertsIco, indicesIco);
+		// Vertex buffer Ico
+		lvk::BufferDesc vertBufIcoDesc{};
+		vertBufIcoDesc.usage = lvk::BufferUsageBits_Vertex;
+		vertBufIcoDesc.storage = lvk::StorageType_Device;
+		vertBufIcoDesc.size = sizeof(Vertex) * vertsIco.size();
+		vertBufIcoDesc.data = vertsIco.data();
+		vertBufIcoDesc.debugName = "Buffer: vertex";
+		lvk::Holder<lvk::BufferHandle> vertexBufferIco = ctx->createBuffer(vertBufIcoDesc);
+		// Index Buffer Ico
+		lvk::BufferDesc indexBufIcoDes{};
+		indexBufIcoDes.usage = lvk::BufferUsageBits_Index;
+		indexBufIcoDes.storage = lvk::StorageType_Device;
+		indexBufIcoDes.size = sizeof(uint32_t) * indicesIco.size();
+		indexBufIcoDes.data = indicesIco.data();
+		indexBufIcoDes.debugName = "Buffer: index";
+		lvk::Holder<lvk::BufferHandle> indexBufferIco = ctx->createBuffer(indexBufIcoDes);
 
 		// Shaders
 		lvk::Holder<lvk::ShaderModuleHandle> vert = loadShaderModule(ctx, std::filesystem::absolute(SHADER_DIR"/main.vert"));
@@ -192,15 +233,27 @@ int main()
 			buff.cmdPushDebugGroupLabel("Render Triangle", 0xff0000ff);
 			{
 				// Bindings
-				buff.cmdBindVertexBuffer(0, vertexBuffer);
-				buff.cmdBindIndexBuffer(indexBuffer, lvk::IndexFormat_UI32);
+				if (currentSphereType == SphereType::UVSphere)
+				{
+					buff.cmdBindVertexBuffer(0, vertexBuffer);
+					buff.cmdBindIndexBuffer(indexBuffer, lvk::IndexFormat_UI32);
+				}
+				else
+				{
+					buff.cmdBindVertexBuffer(0, vertexBufferIco);
+					buff.cmdBindIndexBuffer(indexBufferIco, lvk::IndexFormat_UI32);
+				}
+
 				// Bind Soild Pipeline
 				if (showSolid)
 				{
 					buff.cmdBindRenderPipeline(soildPipeline);
 					buff.cmdBindDepthState({ .compareOp = lvk::CompareOp_Less, .isDepthWriteEnabled = true });
 					buff.cmdPushConstants(pc);
-					buff.cmdDrawIndexed(indices.size());
+					if (currentSphereType == SphereType::UVSphere)
+						buff.cmdDrawIndexed(indices.size());
+					else
+						buff.cmdDrawIndexed(indicesIco.size());
 				}
 				// Bind Wireframe Pipeline
 				if (isWireframe)
@@ -213,7 +266,10 @@ int main()
 					}
 					buff.cmdSetDepthBiasEnable(true);
 					buff.cmdSetDepthBias(0.0f, -1.0f, 0.0f);
-					buff.cmdDrawIndexed(indices.size());
+					if (currentSphereType == SphereType::UVSphere)
+						buff.cmdDrawIndexed(indices.size());
+					else
+						buff.cmdDrawIndexed(indicesIco.size());
 				}
 				// UI
 				showUI(*imgui, framebuffer, buff, isWireframe, showSolid);
