@@ -12,5 +12,5 @@ layout (push_constant) uniform PerFrameData {
 } pc;
 
 void main() {
-	out_FragColor = vec4(vColor, 1.0);
+	out_FragColor = vec4(abs(vColor), 1.0);
 };

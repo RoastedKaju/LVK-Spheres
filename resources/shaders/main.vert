@@ -14,5 +14,5 @@ layout (push_constant) uniform PerFrameData {
 void main()
 {
 	gl_Position = pc.MVP * vec4(inPos, 1.0);
-	vColor = isWireframe ? vec3(0.0f) : inPos.xyz;
+	vColor = isWireframe ? vec3(1.0f) : inPos.xyz;
 }
