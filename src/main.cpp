@@ -66,9 +66,7 @@ int main()
 		std::unique_ptr<lvk::IContext> ctx = lvk::createVulkanContextWithSwapchain(window, width, height, {});
 
 		// ImGui Context
-		std::unique_ptr<lvk::ImGuiRenderer> imgui = std::make_unique<lvk::ImGuiRenderer>(*ctx, FONTS_DIR"/Terminal.ttf", 13.0f);
-
-
+		std::unique_ptr<lvk::ImGuiRenderer> imgui = std::make_unique<lvk::ImGuiRenderer>(*ctx, window, FONTS_DIR"/Terminal.ttf", 13.0f);
 
 		// Mouse callbacks
 		glfwSetCursorPosCallback(window, [](auto* window, double x, double y) { ImGui::GetIO().MousePos = ImVec2(x, y); });
@@ -208,10 +206,10 @@ int main()
 
 			lvk::RenderPass renderPass;
 			renderPass.color[0].loadOp = lvk::LoadOp_Clear;
-			renderPass.color[0].clearColor[0] = 0.5f;
-			renderPass.color[0].clearColor[1] = 0.5f;
-			renderPass.color[0].clearColor[2] = 0.5f;
-			renderPass.color[0].clearColor[3] = 1.0f;
+			renderPass.color[0].clearColor.float32[0] = 0.5f;
+			renderPass.color[0].clearColor.float32[1] = 0.5f;
+			renderPass.color[0].clearColor.float32[2] = 0.5f;
+			renderPass.color[0].clearColor.float32[3] = 1.0f;
 			renderPass.depth.loadOp = lvk::LoadOp_Clear; // Depth
 			renderPass.depth.clearDepth = 1.0f;
 
