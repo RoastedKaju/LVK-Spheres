@@ -8,9 +8,9 @@ This project serves as a base to be used in prototype shading and texture techni
 
 ## 😎 Screenshots
 <p align="center">
-  <img src="docs/uvsphere.jpg" width="300">
-  <img src="docs/icosphere.jpg" width="300">
-  <img src="docs/wireframe.jpg" width="300">
+  <img src="docs/uvsphere.jpg" width="500">
+  <img src="docs/icosphere.jpg" width="500">
+  <img src="docs/wireframe.jpg" width="500">
 </p>
 
 ## 📦 Features
@@ -27,5 +27,5 @@ This project serves as a base to be used in prototype shading and texture techni
 ## 🛠️ Built With
 - **Languages**: C++, GLSL
 - **Build System**: CMake
-- **API**: Lightweight Vulkan
+- **API**: ImGUI, Lightweight Vulkan
 - **Platform**: Windows
