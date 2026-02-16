@@ -156,6 +156,7 @@ int main()
 		pipelineDesc.smFrag = frag;
 		pipelineDesc.color[0].format = ctx->getSwapchainFormat();
 		pipelineDesc.depthFormat = ctx->getFormat(depthTexture);
+		pipelineDesc.cullMode = lvk::CullMode_Back;
 
 		lvk::Holder<lvk::RenderPipelineHandle> soildPipeline = ctx->createRenderPipeline(pipelineDesc);
 
